@@ -54,3 +54,10 @@ button:hover {
 .app.dark button:hover {
   background: #666;
 }
+
+/* seznam bez odrážek */
+ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-left: 0;
+}

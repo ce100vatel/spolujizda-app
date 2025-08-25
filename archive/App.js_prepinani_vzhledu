@@ -1,0 +1,31 @@
+import { useState } from "react";
+import "./index.css";
+
+export default function App() {
+  const [role, setRole] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+
+  return (
+    <div className={`app ${darkMode ? "dark" : "light"}`}>
+      {/* tlačítko na přepínání vzhledu */}
+      <div className="theme-toggle">
+        <button onClick={() => setDarkMode(!darkMode)}>
+          {darkMode ? "☀️ Světlý" : "🌙 Tmavý"}
+        </button>
+      </div>
+
+      {!role ? (
+        <div className="menu">
+          <h1>Vyberte si roli:</h1>
+          <button onClick={() => setRole("driver")}>Řidič</button>
+          <button onClick={() => setRole("passenger")}>Pasažér</button>
+        </div>
+      ) : (
+        <div className="content">
+          {role === "driver" ? <h2>Jsem řidič 🚗</h2> : <h2>Jsem pasažér 🧳</h2>}
+          <button onClick={() => setRole(null)}>Zpět</button>
+        </div>
+      )}
+    </div>
+  );
+}

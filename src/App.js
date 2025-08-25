@@ -1,81 +1,134 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
 
-export default function App() {
-  const [role, setRole] = useState(null); // 'driver' nebo 'passenger'
+function App() {
   const [rides, setRides] = useState([]);
-  const [newRide, setNewRide] = useState({from:"", to:"", seats:1, price:0, stops:[]});
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [seats, setSeats] = useState(1);
+  const [mode, setMode] = useState("passenger"); // passenger | driver
+  const [darkMode, setDarkMode] = useState(false);
 
-  // Načtení všech jízd z Firestore
-  const loadData = async () => {
-    const snapshot = await getDocs(collection(db,"rides"));
-    setRides(snapshot.docs.map(d => ({id:d.id, ...d.data()})));
-  };
+  useEffect(() => {
+    const fetchRides = async () => {
+      const querySnapshot = await getDocs(collection(db, "rides"));
+      setRides(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+    fetchRides();
+  }, []);
 
-  // Přidání nové jízdy (řidič)
   const addRide = async () => {
-    await addDoc(collection(db,"rides"), {
-      ...newRide,
-      driver: "Kryton",
-      passengers: [] // inicializace, aby nikdy nebylo undefined
-    });
-    loadData();
+    if (!from || !to || seats < 1) return;
+    const newRide = { from, to, seats: parseInt(seats) };
+    await addDoc(collection(db, "rides"), newRide);
+    setFrom("");
+    setTo("");
+    setSeats(1);
+    const querySnapshot = await getDocs(collection(db, "rides"));
+    setRides(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
   };
 
-  // Přidání pasažéra do jízdy
-  const joinRide = async (ride) => {
-    const rideRef = doc(db,"rides",ride.id);
-    const currentPassengers = ride.passengers || [];
-    await updateDoc(rideRef, { passengers: [...currentPassengers, "Alice"] });
-    loadData();
+  const joinRide = async (rideId, seatsAvailable) => {
+    if (seatsAvailable <= 0) return;
+    const rideRef = doc(db, "rides", rideId);
+    await updateDoc(rideRef, { seats: seatsAvailable - 1 });
+    const querySnapshot = await getDocs(collection(db, "rides"));
+    setRides(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
   };
 
-  useEffect(() => { loadData() }, []);
-
-  // Volba role
-  if (!role) return (
-    <div>
-      <h1>Vyberte roli</h1>
-      <button onClick={() => setRole("driver")}>Řidič</button>
-      <button onClick={() => setRole("passenger")}>Pasažér</button>
-    </div>
-  );
-
-  // Zobrazení pro řidiče
-  if (role === "driver") return (
-    <div>
-      <h1>Řidič</h1>
-      <input placeholder="Odkud" value={newRide.from} onChange={e=>setNewRide({...newRide, from:e.target.value})}/>
-      <input placeholder="Kam" value={newRide.to} onChange={e=>setNewRide({...newRide, to:e.target.value})}/>
-      <input type="number" placeholder="Počet míst" value={newRide.seats} onChange={e=>setNewRide({...newRide, seats:Number(e.target.value)})}/>
-      <input type="number" placeholder="Cena" value={newRide.price} onChange={e=>setNewRide({...newRide, price:Number(e.target.value)})}/>
-      <button onClick={addRide}>Přidat jízdu</button>
-
-      <h2>Seznam jízd</h2>
-      <ul>
-        {rides.map(r => (
-          <li key={r.id}>
-            {r.from} → {r.to} ({r.seats - (r.passengers?.length || 0)} volných míst),
-            pasažéři: {(r.passengers || []).join(", ")}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-  // Zobrazení pro pasažéra
   return (
-    <div>
-      <h1>Pasažér</h1>
-      <ul>
-        {rides.map(r => (
-          <li key={r.id}>
-            {r.from} → {r.to} ({r.seats - (r.passengers?.length || 0)} volných míst)
-            <button onClick={() => joinRide(r)}>Jedu</button>
-          </li>
-        ))}
-      </ul>
+     <div className={`app ${darkMode ? "dark" : "light"}`}>
+
+        {/* Horní lišta */}
+
+          <h1 className="text-xl font-bold">🚗 Spolujízda</h1>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600"
+              onClick={() => setDarkMode(!darkMode)}
+            >
+              {darkMode ? "🌞 Světlý" : "🌙 Tmavý"}
+            </button>
+            <button
+              className="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+              onClick={() =>
+                setMode(mode === "passenger" ? "driver" : "passenger")
+              }
+            >
+              Přepnout na {mode === "passenger" ? "Řidič" : "Pasažér"}
+            </button>
+          </div>
+
+
+        {/* Režim řidiče */}
+        {mode === "driver" && (
+          <div className="p-4">
+            <h2 className="text-lg font-semibold mb-2">➕ Přidat jízdu</h2>
+            <input
+              className="border p-2 mr-2 rounded text-black"
+              placeholder="Odkud"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+            <input
+              className="border p-2 mr-2 rounded text-black"
+              placeholder="Kam"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+            <input
+              type="number"
+              className="border p-2 mr-2 rounded text-black w-20"
+              placeholder="Místa"
+              value={seats}
+              onChange={(e) => setSeats(e.target.value)}
+            />
+            <button
+              className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              onClick={addRide}
+            >
+              Přidat
+            </button>
+          </div>
+        )}
+
+        {/* Režim pasažéra */}
+        {mode === "passenger" && (
+          <div className="p-4">
+            <h2 className="text-lg font-semibold mb-2">📋 Dostupné jízdy</h2>
+            {rides.length === 0 ? (
+              <p>Žádné jízdy nejsou k dispozici.</p>
+            ) : (
+              <ul className="space-y-2">
+                {rides.map((ride) => (
+                  <li
+                    key={ride.id}
+                    className="border p-3 rounded flex justify-between items-center dark:border-gray-700"
+                  >
+                    <span>
+                      {ride.from} → {ride.to} ({ride.seats} míst)
+                    </span>
+                    <button
+                      disabled={ride.seats <= 0}
+                      className={`px-3 py-1 rounded ${
+                        ride.seats > 0
+                          ? "bg-blue-500 text-white hover:bg-blue-600"
+                          : "bg-gray-400 text-gray-700 cursor-not-allowed"
+                      }`}
+                      onClick={() => joinRide(ride.id, ride.seats)}
+                    >
+                      Přidat se
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
     </div>
   );
 }
+
+export default App;
